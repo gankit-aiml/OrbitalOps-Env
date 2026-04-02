@@ -79,6 +79,7 @@ class MyEnvironment(Environment):
         
         obs = OrbitalObservation(**self.obs_data, reward=0.0, done=False)
         self.history.append(obs)
+        self.obs_data["last_action_status"] = "Environment Initialized."
         return obs
 
     def _rk4(self):
@@ -113,10 +114,11 @@ class MyEnvironment(Environment):
         self._state.step_count += 1
         reward_val, done, info = 0.0, False, "Nominal"
         
-        # Action Logic
+        # 1. Action Logic (Same as before)
         if action.action_type == "track" and action.station_id in self.obs_data["visible_stations"]:
             self.obs_data["positional_uncertainty"] = 1.0
             reward_val += 1.0
+            info = f"Tracked {action.station_id}. Uncertainty collapsed."
         elif action.action_type == "maneuver":
             dv = math.sqrt((action.dv_x or 0)**2 + (action.dv_y or 0)**2)
             if self.obs_data["fuel_remaining"] >= dv:
@@ -125,22 +127,31 @@ class MyEnvironment(Environment):
                 self.obs_data["fuel_remaining"] -= dv
                 self.obs_data["positional_uncertainty"] += (2.0 + dv * 10)
                 reward_val -= 1.0
+                info = f"Maneuver executed. Fuel spent: {dv:.2f}."
+            else:
+                info = "Maneuver failed: Insufficient Fuel."
         
-        # Physics
+        # 2. Physics (Same as before)
         self._rk4()
         self.obs_data["positional_uncertainty"] += 0.2
         self.obs_data["time_step"] += 1
         self._update_visibility()
 
-        # Terminations
+        # ---> NEW: TRUE DENSE REWARD SHAPING <---
+        # The agent loses a tiny amount of reward proportional to its uncertainty.
+        # If uncertainty is 50km, it loses -0.05 this step. This constantly pushes the RL agent to track!
+        reward_val -= (self.obs_data["positional_uncertainty"] / 1000.0)
+
+        # 3. Terminations
         r = math.sqrt(self.obs_data["position_x"]**2 + self.obs_data["position_y"]**2)
         if r < R_EARTH or r > MAX_RADIUS or self.obs_data["positional_uncertainty"] > 100:
-            done, reward_val, info = True, -10.0, "Failure"
+            done, reward_val, info = True, -10.0, f"Catastrophic Failure. Radius: {r:.0f}km, Uncert: {self.obs_data['positional_uncertainty']:.1f}km"
         elif self.obs_data["time_step"] >= MAX_STEPS:
             done = True
 
         obs = OrbitalObservation(**self.obs_data, reward=reward_val, done=done, metadata={"info": info})
         self.history.append(obs)
+        self.obs_data["last_action_status"] = info
         return obs
 
     @property

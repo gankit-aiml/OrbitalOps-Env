@@ -65,6 +65,22 @@ Modeled after the paper's parametric discrete/continuous formulation:
   <em>Figure 2: The Parametric Action Space. The agent chooses between discrete actions (Track/Idle) and continuous control actions (Maneuver Delta-V).</em>
 </p>
 
+### 🧮 Astrodynamics & Physics Engine
+The environment utilizes a custom **Runge-Kutta 4 (RK4)** numerical integrator to solve the Planar-Restricted Two-Body Problem (PR2BP). 
+Gravitational acceleration is strictly calculated as:
+
+$$ a_x = -\mu \frac{x}{(x^2 + y^2)^{3/2}}, \quad a_y = -\mu \frac{y}{(x^2 + y^2)^{3/2}} $$
+
+Where $\mu = 3.986 \times 10^5 \text{ km}^3/\text{s}^2$ (Earth's standard gravitational parameter).
+
+### 📡 The Uncertainty Formula (RL Credit Assignment)
+The state uncertainty $\sigma$ (a proxy for Kalman Filter covariance) updates via:
+1. **Process Noise:** $\sigma_{t+1} = \sigma_t + 0.2$ (Natural orbital drift)
+2. **Measurement Update:** $\sigma_{t+1} = 1.0$ (Triggered by `TRACK` action on visible station)
+3. **Execution Error:** $\sigma_{t+1} = \sigma_t + 2.0 + (|\Delta V| \times 10)$ (Triggered by `MANEUVER`)
+
+*This formulation explicitly creates a delayed-reward constraint environment.*
+
 ### Reward Shaping & Punishments (Dense Signal)
 
 The reward function provides dense, continuous gradients to solve the credit assignment problem:

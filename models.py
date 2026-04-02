@@ -27,3 +27,4 @@ class OrbitalObservation(Observation):
     fuel_remaining: float = Field(default=100.0, description="Fuel remaining (0.0 to 100.0).")
     positional_uncertainty: float = Field(default=5.0, description="State uncertainty in km.")
     visible_stations: List[str] = Field(default_factory=list, description="Visible stations.")
+    last_action_status: str = Field(default="Nominal", description="Status/Error of the previous action.")
