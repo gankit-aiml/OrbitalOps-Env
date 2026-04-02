@@ -102,8 +102,8 @@ To prove that this environment genuinely challenges frontier models, we evaluate
 ```json
 {
     "Task_1_Easy": 0.983,
-    "Task_2_Medium": 0.306,
-    "Task_3_Hard": 0.095
+    "Task_2_Medium": 1.000,
+    "Task_3_Hard": 0.040
 }
 ```
 
