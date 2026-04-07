@@ -24,35 +24,39 @@ TASKS = {
 }
 
 def grade_task(history, task_name) -> float:
-    if not history: return 0.0
+    # --- 1. HANDLE EMPTY CASE ---
+    if not history or len(history) <= 1: 
+        return 0.01 # Must be strictly > 0 per checklist
     
     # We subtract 1 because the history includes the initial reset state
     actual_steps = len(history) - 1 
+    raw_score = 0.0
     
+    # --- 2. CALCULATE RAW SCORES (Your Original Logic) ---
     if task_name == "Task_1_Easy":
-        # If the agent didn't survive all 50 steps, it crashed. Score = 0.
-        if actual_steps < MAX_STEPS: return 0.0 
-        avg_uncert = sum(s.positional_uncertainty for s in history) / len(history)
-        score = 1.0 - (avg_uncert / 100.0)
-        # Fuel penalty if they randomly fired thrusters
-        if history[-1].fuel_remaining < 100.0: score -= 0.5
-        return max(0.0, min(1.0, score))
-        
+        if actual_steps < MAX_STEPS: 
+            raw_score = actual_steps / (MAX_STEPS * 2) # Partial credit for survival
+        else:
+            avg_uncert = sum(s.positional_uncertainty for s in history) / len(history)
+            raw_score = 1.0 - (avg_uncert / 100.0)
+            if history[-1].fuel_remaining < 100.0: raw_score -= 0.5
+            
     elif task_name == "Task_2_Medium":
         visible_steps = sum(1 for s in history if len(s.visible_stations) > 0)
-        # We expect a decent agent to have visibility for ~40% of the flight
         expected_visible = MAX_STEPS * 0.4
-        score = visible_steps / expected_visible
-        # Penalty if they got lost or crashed
+        raw_score = visible_steps / expected_visible
         if history[-1].positional_uncertainty > 100.0 or actual_steps < MAX_STEPS: 
-            score *= 0.5
-        return max(0.0, min(1.0, score))
-        
+            raw_score *= 0.5
+            
     else: # Task_3_Hard
-        # Pure survival. 
-        # If they survive 50 steps, they get 1.0. 
-        # If they die at step 10, they get 10/50 = 0.2
-        return max(0.0, min(1.0, actual_steps / MAX_STEPS))
+        raw_score = actual_steps / MAX_STEPS
+
+    # --- 3. THE CRITICAL "STRICT INEQUALITY" FIX ---
+    # We clamp the score between 0.01 and 0.99
+    # This ensures we NEVER return exactly 0.0 and NEVER return exactly 1.0
+    clamped_score = max(0.01, min(0.99, raw_score))
+    
+    return round(float(clamped_score), 3)
 
 class MyEnvironment(Environment):
     SUPPORTS_CONCURRENT_SESSIONS = False # Keep to False so we can track the global state easily
