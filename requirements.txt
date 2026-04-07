@@ -1,0 +1,9 @@
+openai
+fastapi
+uvicorn
+pydantic
+numpy
+openenv-core
+
+
+
