@@ -1,24 +1,30 @@
-# syntax=docker/dockerfile:1
-FROM python:3.11-slim
+# Use the official Meta-provided base image from your boilerplate
+FROM ghcr.io/meta-pytorch/openenv-base:latest
 
-# Install uv
-RUN pip install uv --no-cache-dir
-
+# Set the working directory to /app (Simple and flat)
 WORKDIR /app
 
-# Copy dependency files first for layer caching
-COPY pyproject.toml uv.lock ./
+# Ensure we are using the root user to avoid permission issues in the validator
+USER root
 
-# Install dependencies (no project itself yet, just deps)
-RUN uv sync --frozen --no-install-project --no-cache
+# Install system dependencies (git is often needed for openenv-core)
+RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
 
-# Copy the rest of the project
+# Copy requirements and install
+# We use the pip installed in the base image
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy all your project files into /app
 COPY . .
 
-# Install the project itself
-RUN uv sync --frozen --no-cache
+# CRITICAL: Set PYTHONPATH so 'server' and 'models' are discoverable
+ENV PYTHONPATH="/app"
+ENV PYTHONUNBUFFERED=1
 
+# Hugging Face mandatory port
 EXPOSE 7860
 
-# Run the server via the [project.scripts] entry point
-CMD ["uv", "run", "server", "--host", "0.0.0.0", "--port", "7860"]
+# Run the server on the MANDATORY port 7860
+# We point directly to server.app:app
+CMD ["python", "-m", "uvicorn", "server.app:app", "--host", "0.0.0.0", "--port", "7860"]
