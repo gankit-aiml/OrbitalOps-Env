@@ -14,16 +14,14 @@ try:
 except Exception as e:
     raise ImportError("openenv is required. Install dependencies.") from e
 
+# Top of server/app.py
 try:
     from ..models import OrbitalAction, OrbitalObservation
     from .my_env_environment import MyEnvironment, TASKS, grade_task
-except (ImportError, ModuleNotFoundError):
-    try:
-        from models import OrbitalAction, OrbitalObservation
-        from my_env_environment import MyEnvironment, TASKS, grade_task
-    except (ImportError, ModuleNotFoundError):
-        from my_env.models import OrbitalAction, OrbitalObservation
-        from my_env.server.my_env_environment import MyEnvironment, TASKS, grade_task
+except (ImportError, ValueError):
+    # This is what will run inside the Docker container
+    from models import OrbitalAction, OrbitalObservation
+    from server.my_env_environment import MyEnvironment, TASKS, grade_task
 
 # Create the official app
 app = create_app(
